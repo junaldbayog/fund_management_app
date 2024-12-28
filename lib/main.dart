@@ -35,6 +35,51 @@ class FundManagerApp extends StatelessWidget {
     return ThemeData(
       useMaterial3: true,
       brightness: Brightness.light,
+      fontFamily: 'Inter',
+      textTheme: const TextTheme(
+        displayLarge: TextStyle(
+          fontSize: 28,
+          fontWeight: FontWeight.w700,
+          letterSpacing: -0.5,
+          height: 1.2,
+          color: Color(0xFF00d293),
+        ),
+        titleLarge: TextStyle(
+          fontSize: 20,
+          fontWeight: FontWeight.w600,
+          letterSpacing: -0.5,
+          height: 1.3,
+          color: Color(0xFF2C3E50),
+        ),
+        titleMedium: TextStyle(
+          fontSize: 16,
+          fontWeight: FontWeight.w600,
+          letterSpacing: -0.2,
+          height: 1.4,
+          color: Color(0xFF2C3E50),
+        ),
+        bodyLarge: TextStyle(
+          fontSize: 15,
+          fontWeight: FontWeight.w400,
+          letterSpacing: 0.1,
+          height: 1.5,
+          color: Color(0xFF2C3E50),
+        ),
+        bodyMedium: TextStyle(
+          fontSize: 14,
+          fontWeight: FontWeight.w400,
+          letterSpacing: 0.1,
+          height: 1.5,
+          color: Color(0xFF2C3E50),
+        ),
+        labelLarge: TextStyle(
+          fontSize: 13,
+          fontWeight: FontWeight.w500,
+          letterSpacing: 0.1,
+          height: 1.4,
+          color: Color(0xFF2C3E50),
+        ),
+      ),
       colorScheme: ColorScheme.fromSeed(
         seedColor: const Color(0xFF00d293),
         primary: const Color(0xFF00d293),
@@ -45,25 +90,26 @@ class FundManagerApp extends StatelessWidget {
       appBarTheme: const AppBarTheme(
         backgroundColor: Colors.transparent,
         elevation: 0,
-      ),
-      textTheme: const TextTheme(
-        displayLarge: TextStyle(
-          fontSize: 32,
-          fontWeight: FontWeight.bold,
-          color: Color(0xFF00d293),
-        ),
-        titleLarge: TextStyle(
-          fontSize: 24,
+        titleTextStyle: TextStyle(
+          fontFamily: 'Inter',
+          fontSize: 20,
           fontWeight: FontWeight.w600,
+          letterSpacing: -0.5,
           color: Color(0xFF2C3E50),
         ),
-        bodyLarge: TextStyle(
-          fontSize: 16,
-          color: Color(0xFF2C3E50),
+      ),
+      bottomNavigationBarTheme: const BottomNavigationBarThemeData(
+        selectedLabelStyle: TextStyle(
+          fontFamily: 'Inter',
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+          letterSpacing: 0.2,
         ),
-        bodyMedium: TextStyle(
-          fontSize: 14,
-          color: Color(0xFF2C3E50),
+        unselectedLabelStyle: TextStyle(
+          fontFamily: 'Inter',
+          fontSize: 11,
+          fontWeight: FontWeight.w500,
+          letterSpacing: 0.2,
         ),
       ),
       cardTheme: CardTheme(
@@ -78,6 +124,12 @@ class FundManagerApp extends StatelessWidget {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(8),
           ),
+          textStyle: const TextStyle(
+            fontFamily: 'Inter',
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+            letterSpacing: 0.1,
+          ),
         ),
       ),
       inputDecorationTheme: InputDecorationTheme(
@@ -87,6 +139,18 @@ class FundManagerApp extends StatelessWidget {
         filled: true,
         fillColor: Colors.grey[50],
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        labelStyle: TextStyle(
+          fontFamily: 'Inter',
+          fontSize: 14,
+          fontWeight: FontWeight.w500,
+          color: Colors.grey[700],
+        ),
+        hintStyle: TextStyle(
+          fontFamily: 'Inter',
+          fontSize: 14,
+          fontWeight: FontWeight.w400,
+          color: Colors.grey[500],
+        ),
       ),
     );
   }
@@ -95,6 +159,51 @@ class FundManagerApp extends StatelessWidget {
     return ThemeData(
       useMaterial3: true,
       brightness: Brightness.dark,
+      fontFamily: 'Inter',
+      textTheme: const TextTheme(
+        displayLarge: TextStyle(
+          fontSize: 28,
+          fontWeight: FontWeight.w700,
+          letterSpacing: -0.5,
+          height: 1.2,
+          color: Color(0xFF00d293),
+        ),
+        titleLarge: TextStyle(
+          fontSize: 20,
+          fontWeight: FontWeight.w600,
+          letterSpacing: -0.5,
+          height: 1.3,
+          color: Colors.white,
+        ),
+        titleMedium: TextStyle(
+          fontSize: 16,
+          fontWeight: FontWeight.w600,
+          letterSpacing: -0.2,
+          height: 1.4,
+          color: Colors.white,
+        ),
+        bodyLarge: TextStyle(
+          fontSize: 15,
+          fontWeight: FontWeight.w400,
+          letterSpacing: 0.1,
+          height: 1.5,
+          color: Colors.white70,
+        ),
+        bodyMedium: TextStyle(
+          fontSize: 14,
+          fontWeight: FontWeight.w400,
+          letterSpacing: 0.1,
+          height: 1.5,
+          color: Colors.white70,
+        ),
+        labelLarge: TextStyle(
+          fontSize: 13,
+          fontWeight: FontWeight.w500,
+          letterSpacing: 0.1,
+          height: 1.4,
+          color: Colors.white,
+        ),
+      ),
       colorScheme: ColorScheme.fromSeed(
         brightness: Brightness.dark,
         seedColor: const Color(0xFF00d293),
@@ -106,25 +215,26 @@ class FundManagerApp extends StatelessWidget {
       appBarTheme: const AppBarTheme(
         backgroundColor: Colors.transparent,
         elevation: 0,
-      ),
-      textTheme: const TextTheme(
-        displayLarge: TextStyle(
-          fontSize: 32,
-          fontWeight: FontWeight.bold,
-          color: Color(0xFF00d293),
-        ),
-        titleLarge: TextStyle(
-          fontSize: 24,
+        titleTextStyle: TextStyle(
+          fontFamily: 'Inter',
+          fontSize: 20,
           fontWeight: FontWeight.w600,
+          letterSpacing: -0.5,
           color: Colors.white,
         ),
-        bodyLarge: TextStyle(
-          fontSize: 16,
-          color: Colors.white70,
+      ),
+      bottomNavigationBarTheme: const BottomNavigationBarThemeData(
+        selectedLabelStyle: TextStyle(
+          fontFamily: 'Inter',
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+          letterSpacing: 0.2,
         ),
-        bodyMedium: TextStyle(
-          fontSize: 14,
-          color: Colors.white70,
+        unselectedLabelStyle: TextStyle(
+          fontFamily: 'Inter',
+          fontSize: 11,
+          fontWeight: FontWeight.w500,
+          letterSpacing: 0.2,
         ),
       ),
       cardTheme: CardTheme(
@@ -142,6 +252,12 @@ class FundManagerApp extends StatelessWidget {
           ),
           backgroundColor: const Color(0xFF00d293),
           foregroundColor: Colors.white,
+          textStyle: const TextStyle(
+            fontFamily: 'Inter',
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+            letterSpacing: 0.1,
+          ),
         ),
       ),
       inputDecorationTheme: InputDecorationTheme(
@@ -151,6 +267,18 @@ class FundManagerApp extends StatelessWidget {
         filled: true,
         fillColor: const Color(0xFF2C2C2C),
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        labelStyle: const TextStyle(
+          fontFamily: 'Inter',
+          fontSize: 14,
+          fontWeight: FontWeight.w500,
+          color: Colors.white70,
+        ),
+        hintStyle: const TextStyle(
+          fontFamily: 'Inter',
+          fontSize: 14,
+          fontWeight: FontWeight.w400,
+          color: Colors.white54,
+        ),
       ),
     );
   }

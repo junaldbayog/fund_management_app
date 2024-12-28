@@ -1,12 +1,15 @@
 import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import '../models/client.dart';
+import '../models/trade.dart';
 import 'dart:convert';
 
 class StorageService {
   static final StorageService _instance = StorageService._internal();
   late Box<String> _clientsBox;
   late Box<String> _transactionsBox;
+  late Box<String> _tradesBox;
+  static const String _tradesBoxName = 'trades';
 
   factory StorageService() => _instance;
 
@@ -16,6 +19,7 @@ class StorageService {
     await Hive.initFlutter();
     _clientsBox = await Hive.openBox<String>('clients');
     _transactionsBox = await Hive.openBox<String>('transactions');
+    _tradesBox = await Hive.openBox<String>(_tradesBoxName);
   }
 
   Future<void> insertClient(Client client) async {
@@ -62,5 +66,22 @@ class StorageService {
 
   Future<void> deleteTransaction(String id) async {
     await _transactionsBox.delete(id);
+  }
+
+  Future<List<Trade>> getTrades() async {
+    final tradeMaps = _tradesBox.values.map((str) => jsonDecode(str)).toList();
+    return tradeMaps.map((map) => Trade.fromMap(map)).toList().reversed.toList();
+  }
+
+  Future<void> addTrade(Trade trade) async {
+    await _tradesBox.put(trade.id, jsonEncode(trade.toMap()));
+  }
+
+  Future<void> updateTrade(Trade trade) async {
+    await _tradesBox.put(trade.id, jsonEncode(trade.toMap()));
+  }
+
+  Future<void> deleteTrade(String id) async {
+    await _tradesBox.delete(id);
   }
 } 

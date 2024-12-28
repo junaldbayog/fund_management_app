@@ -35,19 +35,23 @@ class _MainScreenState extends State<MainScreen> {
         type: BottomNavigationBarType.fixed,
         items: const [
           BottomNavigationBarItem(
-            icon: Icon(Icons.home),
+            icon: Icon(Icons.dashboard_rounded),
+            activeIcon: Icon(Icons.dashboard_rounded),
             label: 'Home',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.article),
+            icon: Icon(Icons.article_rounded),
+            activeIcon: Icon(Icons.article_rounded),
             label: 'Journal',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.people),
+            icon: Icon(Icons.manage_accounts_rounded),
+            activeIcon: Icon(Icons.manage_accounts_rounded),
             label: 'Clients',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.menu),
+            icon: Icon(Icons.more_horiz_rounded),
+            activeIcon: Icon(Icons.more_horiz_rounded),
             label: 'Menu',
           ),
         ],

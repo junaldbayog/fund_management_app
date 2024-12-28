@@ -4,7 +4,7 @@ import 'package:intl/intl.dart';
 class CurrencyInputFormatter extends TextInputFormatter {
   final NumberFormat _formatter = NumberFormat.currency(
     symbol: '',
-    decimalDigits: 2,
+    decimalDigits: 0,
   );
 
   @override
@@ -19,7 +19,6 @@ class CurrencyInputFormatter extends TextInputFormatter {
 
     // Handle backspace/deletion
     if (oldValue.text.length > newValue.text.length) {
-      // If deleting the decimal point or numbers before it
       String newText = newValue.text.replaceAll(RegExp(r'[^\d.]'), '');
       if (newText.isEmpty) {
         return const TextEditingValue();
@@ -31,7 +30,7 @@ class CurrencyInputFormatter extends TextInputFormatter {
         return TextEditingValue(
           text: formatted,
           selection: TextSelection.collapsed(
-            offset: newValue.selection.baseOffset,
+            offset: formatted.length,
           ),
         );
       }
@@ -48,10 +47,10 @@ class CurrencyInputFormatter extends TextInputFormatter {
     List<String> parts = cleanText.split('.');
     String wholeNumber = parts[0];
     
-    // If there's a decimal part, limit it to 2 places
+    // If there's a decimal part, keep it as is
     String decimalPart = '';
     if (parts.length > 1) {
-      decimalPart = parts[1].length > 2 ? parts[1].substring(0, 2) : parts[1];
+      decimalPart = parts[1];
     }
     
     // Combine whole number and decimal
@@ -61,6 +60,9 @@ class CurrencyInputFormatter extends TextInputFormatter {
     double? value = double.tryParse(cleanText);
     if (value != null) {
       String formatted = _formatter.format(value);
+      if (decimalPart.isNotEmpty) {
+        formatted = '$formatted.$decimalPart';
+      }
       
       // Calculate new cursor position
       int newPosition = cursorPosition;
@@ -69,7 +71,7 @@ class CurrencyInputFormatter extends TextInputFormatter {
         int commasBeforeCursor = formatted.substring(0, newPosition).split(',').length - 1;
         newPosition += commasBeforeCursor;
       } else {
-        // If cursor is after decimal point, put it at the end
+        // If cursor is after decimal point, keep it there
         newPosition = formatted.length;
       }
       
