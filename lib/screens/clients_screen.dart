@@ -167,90 +167,630 @@ class _ClientsScreenState extends State<ClientsScreen> {
     }
   }
 
+  Future<void> _deactivateClient(Client client) async {
+    try {
+      // Create a withdrawal transaction for the remaining balance
+      final balance = _clientBalances[client.id] ?? 0.0;
+      if (balance > 0) {
+        final transaction = Transaction(
+          id: const Uuid().v4(),
+          clientId: client.id,
+          amount: balance,
+          date: DateTime.now(),
+          type: TransactionType.withdrawal,
+          description: 'Account deactivation withdrawal',
+        );
+        await _storage.addTransaction(transaction);
+      }
+
+      // Update client status to inactive
+      final updatedClient = client.copyWith(isActive: false);
+      await _storage.updateClient(updatedClient);
+      await _loadClients();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${client.name} has been deactivated')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error deactivating client: ${e.toString()}')),
+        );
+      }
+    }
+  }
+
+  Future<void> _confirmDeactivate(Client client) async {
+    final balance = _clientBalances[client.id] ?? 0.0;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Confirm Deactivation'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Are you sure you want to deactivate ${client.name}?'),
+            const SizedBox(height: 16),
+            if (balance > 0) ...[
+              Text(
+                'Current balance of ${NumberFormat.currency(symbol: '\$').format(balance)} will be withdrawn.',
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+            ],
+            const Text(
+              'This action will remove all funds and mark the account as inactive.',
+              style: TextStyle(color: Colors.red),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: FilledButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Deactivate'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      await _deactivateClient(client);
+    }
+  }
+
+  Future<void> _reactivateClient(Client client) async {
+    try {
+      // Create a new client with zero investment and active status
+      final updatedClient = client.copyWith(
+        isActive: true,
+        initialInvestment: 0,
+      );
+      await _storage.updateClient(updatedClient);
+
+      // Reset the client's balance in the local state
+      setState(() {
+        _clientBalances[client.id] = 0;
+      });
+
+      await _loadClients();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${client.name} has been reactivated with zero balance')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error reactivating client: ${e.toString()}')),
+        );
+      }
+    }
+  }
+
+  Future<void> _confirmReactivate(Client client) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Confirm Reactivation'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Are you sure you want to reactivate ${client.name}?'),
+            const SizedBox(height: 8),
+            const Text(
+              'The client will be reactivated with a zero balance and will need to make new deposits to invest.',
+              style: TextStyle(color: Colors.grey),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Reactivate'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      await _reactivateClient(client);
+    }
+  }
+
+  Widget _buildInvestmentInfo(String label, double amount, IconData icon) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceVariant,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                icon,
+                size: 16,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                label,
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            NumberFormat.currency(symbol: '\$').format(amount),
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSummaryCard() {
+    // Calculate total investment only from active clients
+    final activeClients = _clients.where((c) => c.isActive).toList();
+    double totalInvestment = 0;
+    for (final client in activeClients) {
+      totalInvestment += _clientBalances[client.id] ?? 0.0;
+    }
+
+    return Card(
+      margin: const EdgeInsets.all(16),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(
+                    Icons.groups_rounded,
+                    color: Theme.of(context).colorScheme.primary,
+                    size: 24,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Portfolio Summary',
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      Text(
+                        '${activeClients.length} Active ${activeClients.length == 1 ? 'Client' : 'Clients'}',
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 24),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Total Assets Under Management',
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.primary,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    NumberFormat.currency(symbol: '\$').format(totalInvestment),
+                    style: TextStyle(
+                      fontSize: 28,
+                      fontWeight: FontWeight.bold,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    // Filter active clients for the main list
+    final activeClients = _clients.where((c) => c.isActive).toList();
+    final inactiveClients = _clients.where((c) => !c.isActive).toList();
+
     return Scaffold(
       appBar: const JPBAppBar(showBackButton: false),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _clients.isEmpty
-              ? const Center(child: Text('No clients yet. Add your first client!'))
-              : ListView.builder(
-                  itemCount: _clients.length,
-                  padding: const EdgeInsets.all(16),
-                  itemBuilder: (context, index) {
-                    final client = _clients[index];
-                    final balance = _clientBalances[client.id] ?? 0.0;
-                    
-                    return Card(
-                      margin: const EdgeInsets.only(bottom: 16),
-                      child: Padding(
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.people_outline_rounded,
+                        size: 64,
+                        color: Theme.of(context).colorScheme.primary.withOpacity(0.5),
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        'No clients yet',
+                        style: Theme.of(context).textTheme.titleLarge,
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Add your first client to get started',
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      FilledButton.icon(
+                        onPressed: _showAddClientDialog,
+                        icon: const Icon(Icons.add),
+                        label: const Text('Add Client'),
+                      ),
+                    ],
+                  ),
+                )
+              : CustomScrollView(
+                  slivers: [
+                    SliverToBoxAdapter(
+                      child: _buildSummaryCard(),
+                    ),
+                    if (activeClients.isNotEmpty) ...[
+                      SliverPadding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        sliver: SliverToBoxAdapter(
+                          child: Row(
+                            children: [
+                              Text(
+                                'Active Clients',
+                                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 2,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Text(
+                                  activeClients.length.toString(),
+                                  style: TextStyle(
+                                    color: Theme.of(context).colorScheme.primary,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      SliverPadding(
                         padding: const EdgeInsets.all(16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Expanded(
+                        sliver: SliverList(
+                          delegate: SliverChildBuilderDelegate(
+                            (context, index) {
+                              final client = activeClients[index];
+                              final balance = _clientBalances[client.id] ?? 0.0;
+                              
+                              return Card(
+                                margin: const EdgeInsets.only(bottom: 16),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: Padding(
+                                  padding: const EdgeInsets.all(24),
                                   child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
-                                      Text(
-                                        client.name,
-                                        style: const TextStyle(
-                                          fontSize: 18,
-                                          fontWeight: FontWeight.bold,
-                                        ),
+                                      Row(
+                                        children: [
+                                          Container(
+                                            padding: const EdgeInsets.all(12),
+                                            decoration: BoxDecoration(
+                                              color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                                              borderRadius: BorderRadius.circular(12),
+                                            ),
+                                            child: Icon(
+                                              Icons.person_rounded,
+                                              color: Theme.of(context).colorScheme.primary,
+                                              size: 24,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 16),
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              children: [
+                                                Text(
+                                                  client.name,
+                                                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                                                    fontWeight: FontWeight.bold,
+                                                  ),
+                                                ),
+                                                if (client.startingDate != null) ...[
+                                                  const SizedBox(height: 4),
+                                                  Text(
+                                                    'Started: ${DateFormat('MMM dd, yyyy').format(client.startingDate!)}',
+                                                    style: TextStyle(
+                                                      color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                                                    ),
+                                                  ),
+                                                ],
+                                              ],
+                                            ),
+                                          ),
+                                          PopupMenuButton<String>(
+                                            icon: const Icon(Icons.more_vert),
+                                            itemBuilder: (context) => [
+                                              const PopupMenuItem(
+                                                value: 'history',
+                                                child: Row(
+                                                  children: [
+                                                    Icon(Icons.history_rounded),
+                                                    SizedBox(width: 8),
+                                                    Text('Transaction History'),
+                                                  ],
+                                                ),
+                                              ),
+                                              const PopupMenuItem(
+                                                value: 'edit',
+                                                child: Row(
+                                                  children: [
+                                                    Icon(Icons.edit_rounded),
+                                                    SizedBox(width: 8),
+                                                    Text('Edit'),
+                                                  ],
+                                                ),
+                                              ),
+                                              const PopupMenuItem(
+                                                value: 'deactivate',
+                                                child: Row(
+                                                  children: [
+                                                    Icon(Icons.person_off_rounded, color: Colors.red),
+                                                    SizedBox(width: 8),
+                                                    Text('Deactivate', style: TextStyle(color: Colors.red)),
+                                                  ],
+                                                ),
+                                              ),
+                                            ],
+                                            onSelected: (value) {
+                                              switch (value) {
+                                                case 'history':
+                                                  Navigator.push(
+                                                    context,
+                                                    MaterialPageRoute(
+                                                      builder: (context) => TransactionHistoryScreen(client: client),
+                                                    ),
+                                                  );
+                                                  break;
+                                                case 'edit':
+                                                  _showEditClientDialog(client);
+                                                  break;
+                                                case 'deactivate':
+                                                  _confirmDeactivate(client);
+                                                  break;
+                                              }
+                                            },
+                                          ),
+                                        ],
                                       ),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        'Initial: ${NumberFormat.currency(symbol: '\$').format(client.initialInvestment)}',
-                                        style: TextStyle(
-                                          color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
-                                        ),
-                                      ),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        'Total Investment: ${NumberFormat.currency(symbol: '\$').format(balance)}',
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.w500,
-                                        ),
+                                      const SizedBox(height: 24),
+                                      Row(
+                                        children: [
+                                          Expanded(
+                                            child: _buildInvestmentInfo(
+                                              'Initial Investment',
+                                              client.initialInvestment,
+                                              Icons.account_balance_rounded,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 16),
+                                          Expanded(
+                                            child: _buildInvestmentInfo(
+                                              'Total Investment',
+                                              balance,
+                                              Icons.account_balance_wallet_rounded,
+                                            ),
+                                          ),
+                                        ],
                                       ),
                                     ],
                                   ),
                                 ),
-                                Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    IconButton(
-                                      icon: const Icon(Icons.edit_rounded),
-                                      onPressed: () => _showEditClientDialog(client),
-                                      tooltip: 'Edit Client',
-                                    ),
-                                    IconButton(
-                                      icon: const Icon(Icons.delete_outline_rounded),
-                                      onPressed: () => _confirmDelete(client),
-                                      tooltip: 'Delete Client',
-                                      color: Colors.red,
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                            if (client.startingDate != null) ...[
-                              const SizedBox(height: 4),
+                              );
+                            },
+                            childCount: activeClients.length,
+                          ),
+                        ),
+                      ),
+                    ],
+                    if (inactiveClients.isNotEmpty) ...[
+                      SliverPadding(
+                        padding: const EdgeInsets.fromLTRB(16, 32, 16, 0),
+                        sliver: SliverToBoxAdapter(
+                          child: Row(
+                            children: [
                               Text(
-                                'Started: ${DateFormat('MMM dd, yyyy').format(client.startingDate!)}',
-                                style: TextStyle(
+                                'Inactive Clients',
+                                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.bold,
                                   color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
                                 ),
                               ),
+                              const SizedBox(width: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 2,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Theme.of(context).colorScheme.surfaceVariant,
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Text(
+                                  inactiveClients.length.toString(),
+                                  style: TextStyle(
+                                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ),
                             ],
-                          ],
+                          ),
                         ),
                       ),
-                    );
-                  },
+                      SliverPadding(
+                        padding: const EdgeInsets.all(16),
+                        sliver: SliverList(
+                          delegate: SliverChildBuilderDelegate(
+                            (context, index) {
+                              final client = inactiveClients[index];
+                              
+                              return Card(
+                                margin: const EdgeInsets.only(bottom: 16),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.5),
+                                child: Padding(
+                                  padding: const EdgeInsets.all(24),
+                                  child: Row(
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.all(12),
+                                        decoration: BoxDecoration(
+                                          color: Theme.of(context).colorScheme.onSurface.withOpacity(0.1),
+                                          borderRadius: BorderRadius.circular(12),
+                                        ),
+                                        child: Icon(
+                                          Icons.person_off_rounded,
+                                          color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+                                          size: 24,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 16),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              client.name,
+                                              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                                              ),
+                                            ),
+                                            if (client.startingDate != null) ...[
+                                              const SizedBox(height: 4),
+                                              Text(
+                                                'Deactivated: ${DateFormat('MMM dd, yyyy').format(DateTime.now())}',
+                                                style: TextStyle(
+                                                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+                                                  fontSize: 12,
+                                                ),
+                                              ),
+                                            ],
+                                          ],
+                                        ),
+                                      ),
+                                      Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          IconButton(
+                                            icon: const Icon(Icons.history_rounded),
+                                            onPressed: () {
+                                              Navigator.push(
+                                                context,
+                                                MaterialPageRoute(
+                                                  builder: (context) => TransactionHistoryScreen(client: client),
+                                                ),
+                                              );
+                                            },
+                                            tooltip: 'Transaction History',
+                                            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+                                          ),
+                                          IconButton(
+                                            icon: const Icon(Icons.person_add_rounded),
+                                            onPressed: () => _confirmReactivate(client),
+                                            tooltip: 'Reactivate Client',
+                                            color: Theme.of(context).colorScheme.primary,
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            },
+                            childCount: inactiveClients.length,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
       floatingActionButton: FloatingActionButton(
         onPressed: _showAddClientDialog,

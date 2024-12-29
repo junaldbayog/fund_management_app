@@ -20,6 +20,7 @@ class _TradingJournalScreenState extends State<TradingJournalScreen> {
   final StorageService _storage = StorageService();
   final List<Trade> _trades = [];
   bool _isLoading = true;
+  bool _showExpandedStats = false;
   String? _filterTicker;
   String _sortBy = 'date'; // 'date', 'ticker', 'profit'
   bool _sortAscending = false;
@@ -342,12 +343,25 @@ class _TradingJournalScreenState extends State<TradingJournalScreen> {
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                Text(
-                  'Total Trades: ${_stats['totalTrades']?.toInt()}',
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
+                Row(
+                  children: [
+                    Text(
+                      'Total Trades: ${_stats['totalTrades']?.toInt()}',
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    IconButton(
+                      icon: Icon(_showExpandedStats ? Icons.expand_less : Icons.expand_more),
+                      onPressed: () {
+                        setState(() {
+                          _showExpandedStats = !_showExpandedStats;
+                        });
+                      },
+                      tooltip: _showExpandedStats ? 'Show less' : 'Show more',
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -380,93 +394,95 @@ class _TradingJournalScreenState extends State<TradingJournalScreen> {
                 ),
               ],
             ),
-            const Divider(height: 32),
-            Row(
-              children: [
-                Expanded(
-                  child: _buildStatItem(
-                    'Avg Win',
-                    NumberFormat.currency(symbol: '\$').format(_stats['averageWin']),
-                    Colors.green,
-                    Icons.trending_up_rounded,
+            if (_showExpandedStats) ...[
+              const Divider(height: 32),
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildStatItem(
+                      'Avg Win',
+                      NumberFormat.currency(symbol: '\$').format(_stats['averageWin']),
+                      Colors.green,
+                      Icons.trending_up_rounded,
+                    ),
                   ),
-                ),
-                Expanded(
-                  child: _buildStatItem(
-                    'Avg Loss',
-                    NumberFormat.currency(symbol: '\$').format(_stats['averageLoss']),
-                    Colors.red,
-                    Icons.trending_down_rounded,
+                  Expanded(
+                    child: _buildStatItem(
+                      'Avg Loss',
+                      NumberFormat.currency(symbol: '\$').format(_stats['averageLoss']),
+                      Colors.red,
+                      Icons.trending_down_rounded,
+                    ),
                   ),
-                ),
-                Expanded(
-                  child: _buildStatItem(
-                    'Expectancy',
-                    NumberFormat.currency(symbol: '\$').format(_stats['expectancy']),
-                    _stats['expectancy']! > 0 ? Colors.green : Colors.red,
-                    Icons.trending_flat_rounded,
+                  Expanded(
+                    child: _buildStatItem(
+                      'Expectancy',
+                      NumberFormat.currency(symbol: '\$').format(_stats['expectancy']),
+                      _stats['expectancy']! > 0 ? Colors.green : Colors.red,
+                      Icons.trending_flat_rounded,
+                    ),
                   ),
-                ),
-              ],
-            ),
-            const Divider(height: 32),
-            Row(
-              children: [
-                Expanded(
-                  child: _buildStatItem(
-                    'Risk/Reward',
-                    _stats['riskRewardRatio']?.toStringAsFixed(2) ?? '0',
-                    _stats['riskRewardRatio']! >= 1 ? Colors.green : Colors.red,
-                    Icons.balance_rounded,
+                ],
+              ),
+              const Divider(height: 32),
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildStatItem(
+                      'Risk/Reward',
+                      _stats['riskRewardRatio']?.toStringAsFixed(2) ?? '0',
+                      _stats['riskRewardRatio']! >= 1 ? Colors.green : Colors.red,
+                      Icons.balance_rounded,
+                    ),
                   ),
-                ),
-                Expanded(
-                  child: _buildStatItem(
-                    'Largest Win',
-                    NumberFormat.currency(symbol: '\$').format(_stats['largestWin']),
-                    Colors.green,
-                    Icons.arrow_circle_up_rounded,
+                  Expanded(
+                    child: _buildStatItem(
+                      'Largest Win',
+                      NumberFormat.currency(symbol: '\$').format(_stats['largestWin']),
+                      Colors.green,
+                      Icons.arrow_circle_up_rounded,
+                    ),
                   ),
-                ),
-                Expanded(
-                  child: _buildStatItem(
-                    'Largest Loss',
-                    NumberFormat.currency(symbol: '\$').format(_stats['largestLoss']),
-                    Colors.red,
-                    Icons.arrow_circle_down_rounded,
+                  Expanded(
+                    child: _buildStatItem(
+                      'Largest Loss',
+                      NumberFormat.currency(symbol: '\$').format(_stats['largestLoss']),
+                      Colors.red,
+                      Icons.arrow_circle_down_rounded,
+                    ),
                   ),
-                ),
-              ],
-            ),
-            const Divider(height: 32),
-            Row(
-              children: [
-                Expanded(
-                  child: _buildStatItem(
-                    'Avg Hold Days',
-                    _stats['averageHoldingDays']?.toStringAsFixed(1) ?? '0',
-                    null,
-                    Icons.calendar_today_rounded,
+                ],
+              ),
+              const Divider(height: 32),
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildStatItem(
+                      'Avg Hold Days',
+                      _stats['averageHoldingDays']?.toStringAsFixed(1) ?? '0',
+                      null,
+                      Icons.calendar_today_rounded,
+                    ),
                   ),
-                ),
-                Expanded(
-                  child: _buildStatItem(
-                    'Consec. Wins',
-                    _stats['consecutiveWins']?.toStringAsFixed(0) ?? '0',
-                    Colors.green,
-                    Icons.repeat_rounded,
+                  Expanded(
+                    child: _buildStatItem(
+                      'Consec. Wins',
+                      _stats['consecutiveWins']?.toStringAsFixed(0) ?? '0',
+                      Colors.green,
+                      Icons.repeat_rounded,
+                    ),
                   ),
-                ),
-                Expanded(
-                  child: _buildStatItem(
-                    'Consec. Losses',
-                    _stats['consecutiveLosses']?.toStringAsFixed(0) ?? '0',
-                    Colors.red,
-                    Icons.repeat_rounded,
+                  Expanded(
+                    child: _buildStatItem(
+                      'Consec. Losses',
+                      _stats['consecutiveLosses']?.toStringAsFixed(0) ?? '0',
+                      Colors.red,
+                      Icons.repeat_rounded,
+                    ),
                   ),
-                ),
-              ],
-            ),
+                ],
+              ),
+            ],
             const SizedBox(height: 16),
             _buildAccountValueChart(),
           ],

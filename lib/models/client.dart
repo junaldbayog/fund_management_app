@@ -3,12 +3,14 @@ class Client {
   final String name;
   final double initialInvestment;
   final DateTime startingDate;
+  final bool isActive;
 
   Client({
     required this.id,
     required this.name,
     required this.initialInvestment,
     required this.startingDate,
+    this.isActive = true,
   });
 
   // Convert to Map for database storage
@@ -18,6 +20,7 @@ class Client {
       'name': name,
       'initialInvestment': initialInvestment,
       'startingDate': startingDate.toIso8601String(),
+      'isActive': isActive,
     };
   }
 
@@ -28,6 +31,24 @@ class Client {
       name: map['name'],
       initialInvestment: map['initialInvestment'],
       startingDate: DateTime.parse(map['startingDate']),
+      isActive: map['isActive'] ?? true,
+    );
+  }
+
+  // Create a copy of the client with updated fields
+  Client copyWith({
+    String? id,
+    String? name,
+    double? initialInvestment,
+    DateTime? startingDate,
+    bool? isActive,
+  }) {
+    return Client(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      initialInvestment: initialInvestment ?? this.initialInvestment,
+      startingDate: startingDate ?? this.startingDate,
+      isActive: isActive ?? this.isActive,
     );
   }
 } 
