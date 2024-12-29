@@ -7,6 +7,7 @@ import '../services/storage_service.dart';
 import 'package:uuid/uuid.dart';
 import 'package:intl/intl.dart';
 import 'package:fl_chart/fl_chart.dart';
+import '../utils/trade_statistics.dart';
 
 class TradingJournalScreen extends StatefulWidget {
   const TradingJournalScreen({super.key});
@@ -22,9 +23,9 @@ class _TradingJournalScreenState extends State<TradingJournalScreen> {
   String? _filterTicker;
   String _sortBy = 'date'; // 'date', 'ticker', 'profit'
   bool _sortAscending = false;
+  double _totalInvestment = 0.0;
   Map<String, double> _stats = {
     'winRate': 0,
-    'hitRate': 0,
     'edgeRatio': 0,
     'totalProfit': 0,
     'averageWin': 0,
@@ -42,6 +43,7 @@ class _TradingJournalScreenState extends State<TradingJournalScreen> {
     'averageRisk': 0,
     'averageReward': 0,
     'riskRewardRatio': 0,
+    'twrr': 0,
   };
 
   @override
@@ -51,136 +53,7 @@ class _TradingJournalScreenState extends State<TradingJournalScreen> {
   }
 
   void _calculateStats(List<Trade> trades) {
-    if (trades.isEmpty) {
-      _stats = Map.fromIterables(_stats.keys, List.filled(_stats.length, 0.0));
-      return;
-    }
-
-    final closedTrades = trades.where((t) => t.sellPrice != null).toList();
-    if (closedTrades.isEmpty) {
-      _stats = Map.fromIterables(_stats.keys, List.filled(_stats.length, 0.0));
-      return;
-    }
-
-    final winningTrades = closedTrades.where((t) => t.sellPrice! > t.buyPrice).toList();
-    final losingTrades = closedTrades.where((t) => t.sellPrice! < t.buyPrice).toList();
-
-    final totalProfit = closedTrades.fold<double>(
-      0,
-      (sum, trade) => sum + ((trade.sellPrice! - trade.buyPrice) * trade.quantity),
-    );
-
-    final averageWin = winningTrades.isEmpty
-        ? 0.0
-        : winningTrades.fold<double>(
-            0,
-            (sum, trade) => sum + ((trade.sellPrice! - trade.buyPrice) * trade.quantity),
-          ) / winningTrades.length;
-
-    final averageLoss = losingTrades.isEmpty
-        ? 0.0
-        : losingTrades.fold<double>(
-            0,
-            (sum, trade) => sum + ((trade.sellPrice! - trade.buyPrice) * trade.quantity),
-          ) / losingTrades.length;
-
-    // Calculate risk and reward
-    final averageRisk = losingTrades.isEmpty
-        ? 0.0
-        : losingTrades.fold<double>(
-            0,
-            (sum, trade) => sum + (trade.buyPrice * trade.quantity),
-          ) / losingTrades.length;
-
-    final averageReward = winningTrades.isEmpty
-        ? 0.0
-        : winningTrades.fold<double>(
-            0,
-            (sum, trade) => sum + (trade.sellPrice! * trade.quantity),
-          ) / winningTrades.length;
-
-    final riskRewardRatio = averageRisk == 0 ? 0 : averageReward / averageRisk;
-
-    // Calculate expectancy
-    final winRate = winningTrades.length / closedTrades.length;
-    final averageWinAmount = averageWin;
-    final averageLossAmount = averageLoss.abs();
-    final expectancy = (winRate * averageWinAmount) - ((1 - winRate) * averageLossAmount);
-
-    // Other calculations remain the same...
-    double largestWin = 0;
-    double largestLoss = 0;
-    if (winningTrades.isNotEmpty) {
-      largestWin = winningTrades
-          .map((t) => (t.sellPrice! - t.buyPrice) * t.quantity)
-          .reduce((a, b) => a > b ? a : b);
-    }
-    if (losingTrades.isNotEmpty) {
-      largestLoss = losingTrades
-          .map((t) => (t.sellPrice! - t.buyPrice) * t.quantity)
-          .reduce((a, b) => a < b ? a : b);
-    }
-
-    final totalWins = winningTrades.fold<double>(
-      0,
-      (sum, trade) => sum + ((trade.sellPrice! - trade.buyPrice) * trade.quantity),
-    );
-    final totalLosses = losingTrades.fold<double>(
-      0,
-      (sum, trade) => sum + ((trade.buyPrice - trade.sellPrice!) * trade.quantity),
-    );
-    final profitFactor = totalLosses == 0 ? 0 : (totalWins / totalLosses);
-
-    final totalHoldingDays = closedTrades.fold<int>(
-      0,
-      (sum, trade) => sum + trade.sellDate!.difference(trade.date).inDays,
-    );
-    final averageHoldingDays = totalHoldingDays / closedTrades.length;
-
-    int maxConsecutiveWins = 0;
-    int maxConsecutiveLosses = 0;
-    int currentConsecutiveWins = 0;
-    int currentConsecutiveLosses = 0;
-
-    for (final trade in closedTrades) {
-      if (trade.sellPrice! > trade.buyPrice) {
-        currentConsecutiveWins++;
-        currentConsecutiveLosses = 0;
-        if (currentConsecutiveWins > maxConsecutiveWins) {
-          maxConsecutiveWins = currentConsecutiveWins;
-        }
-      } else if (trade.sellPrice! < trade.buyPrice) {
-        currentConsecutiveLosses++;
-        currentConsecutiveWins = 0;
-        if (currentConsecutiveLosses > maxConsecutiveLosses) {
-          maxConsecutiveLosses = currentConsecutiveLosses;
-        }
-      }
-    }
-
-    setState(() {
-      _stats = {
-        'winRate': winningTrades.length / closedTrades.length * 100,
-        'hitRate': closedTrades.length / trades.length * 100,
-        'edgeRatio': averageLoss == 0 ? 0 : (averageWin / averageLoss.abs()),
-        'totalProfit': totalProfit,
-        'averageWin': averageWin,
-        'averageLoss': averageLoss,
-        'largestWin': largestWin,
-        'largestLoss': largestLoss,
-        'profitFactor': profitFactor.toDouble(),
-        'averageHoldingDays': averageHoldingDays,
-        'consecutiveWins': maxConsecutiveWins.toDouble(),
-        'consecutiveLosses': maxConsecutiveLosses.toDouble(),
-        'expectancy': expectancy,
-        'winningTrades': winningTrades.length.toDouble(),
-        'losingTrades': losingTrades.length.toDouble(),
-        'totalTrades': closedTrades.length.toDouble(),
-        'averageRisk': averageRisk,
-        'averageReward': averageReward,
-        'riskRewardRatio': riskRewardRatio.toDouble(),
-      };
-    });
+    _stats = TradeStatistics.calculateStats(trades, _totalInvestment);
   }
 
   Future<void> _loadTrades() async {
@@ -188,10 +61,27 @@ class _TradingJournalScreenState extends State<TradingJournalScreen> {
     try {
       final trades = await _storage.getTrades();
       final sortedTrades = _sortTrades(trades);
+      
+      // Calculate total investment including initial investment and profits/losses
+      double total = trades.fold<double>(
+        0,
+        (sum, trade) => sum + (trade.buyPrice * trade.quantity),
+      );
+      
+      // Add profits/losses from closed trades
+      final closedTrades = trades.where((t) => t.sellPrice != null);
+      for (final trade in closedTrades) {
+        final profit = trade.type == TradeType.long
+          ? (trade.sellPrice! - trade.buyPrice) * trade.quantity
+          : (trade.buyPrice - trade.sellPrice!) * trade.quantity;
+        total += profit;
+      }
+      
       setState(() {
         _trades.clear();
         _trades.addAll(sortedTrades);
-        _calculateStats(trades); // Calculate stats on all trades, not just filtered
+        _totalInvestment = total;
+        _calculateStats(trades);
         _isLoading = false;
       });
     } catch (e) {
@@ -474,47 +364,18 @@ class _TradingJournalScreenState extends State<TradingJournalScreen> {
                 ),
                 Expanded(
                   child: _buildStatItem(
-                    'Hit Rate',
-                    '${_stats['hitRate']?.toStringAsFixed(1)}%',
-                    null,
-                    Icons.percent_rounded,
-                  ),
-                ),
-                Expanded(
-                  child: _buildStatItem(
                     'Edge Ratio',
                     _stats['edgeRatio']?.toStringAsFixed(2) ?? '0',
                     _stats['edgeRatio']! >= 1 ? Colors.green : Colors.red,
                     Icons.show_chart_rounded,
                   ),
                 ),
-              ],
-            ),
-            const Divider(height: 32),
-            Row(
-              children: [
                 Expanded(
                   child: _buildStatItem(
                     'Total P/L',
                     NumberFormat.currency(symbol: '\$').format(_stats['totalProfit']),
                     _stats['totalProfit']! > 0 ? Colors.green : Colors.red,
                     Icons.account_balance_rounded,
-                  ),
-                ),
-                Expanded(
-                  child: _buildStatItem(
-                    'Expectancy',
-                    NumberFormat.currency(symbol: '\$').format(_stats['expectancy']),
-                    _stats['expectancy']! > 0 ? Colors.green : Colors.red,
-                    Icons.trending_flat_rounded,
-                  ),
-                ),
-                Expanded(
-                  child: _buildStatItem(
-                    'Risk/Reward',
-                    _stats['riskRewardRatio']?.toStringAsFixed(2) ?? '0',
-                    _stats['riskRewardRatio']! >= 1 ? Colors.green : Colors.red,
-                    Icons.balance_rounded,
                   ),
                 ),
               ],
@@ -540,10 +401,68 @@ class _TradingJournalScreenState extends State<TradingJournalScreen> {
                 ),
                 Expanded(
                   child: _buildStatItem(
+                    'Expectancy',
+                    NumberFormat.currency(symbol: '\$').format(_stats['expectancy']),
+                    _stats['expectancy']! > 0 ? Colors.green : Colors.red,
+                    Icons.trending_flat_rounded,
+                  ),
+                ),
+              ],
+            ),
+            const Divider(height: 32),
+            Row(
+              children: [
+                Expanded(
+                  child: _buildStatItem(
+                    'Risk/Reward',
+                    _stats['riskRewardRatio']?.toStringAsFixed(2) ?? '0',
+                    _stats['riskRewardRatio']! >= 1 ? Colors.green : Colors.red,
+                    Icons.balance_rounded,
+                  ),
+                ),
+                Expanded(
+                  child: _buildStatItem(
+                    'Largest Win',
+                    NumberFormat.currency(symbol: '\$').format(_stats['largestWin']),
+                    Colors.green,
+                    Icons.arrow_circle_up_rounded,
+                  ),
+                ),
+                Expanded(
+                  child: _buildStatItem(
+                    'Largest Loss',
+                    NumberFormat.currency(symbol: '\$').format(_stats['largestLoss']),
+                    Colors.red,
+                    Icons.arrow_circle_down_rounded,
+                  ),
+                ),
+              ],
+            ),
+            const Divider(height: 32),
+            Row(
+              children: [
+                Expanded(
+                  child: _buildStatItem(
                     'Avg Hold Days',
                     _stats['averageHoldingDays']?.toStringAsFixed(1) ?? '0',
                     null,
                     Icons.calendar_today_rounded,
+                  ),
+                ),
+                Expanded(
+                  child: _buildStatItem(
+                    'Consec. Wins',
+                    _stats['consecutiveWins']?.toStringAsFixed(0) ?? '0',
+                    Colors.green,
+                    Icons.repeat_rounded,
+                  ),
+                ),
+                Expanded(
+                  child: _buildStatItem(
+                    'Consec. Losses',
+                    _stats['consecutiveLosses']?.toStringAsFixed(0) ?? '0',
+                    Colors.red,
+                    Icons.repeat_rounded,
                   ),
                 ),
               ],
@@ -562,9 +481,6 @@ class _TradingJournalScreenState extends State<TradingJournalScreen> {
       case 'Win Rate':
         tooltip = 'Percentage of profitable trades out of all closed trades';
         break;
-      case 'Hit Rate':
-        tooltip = 'Percentage of closed trades out of all trades';
-        break;
       case 'Edge Ratio':
         tooltip = 'Average win amount divided by average loss amount. Higher is better.';
         break;
@@ -577,12 +493,6 @@ class _TradingJournalScreenState extends State<TradingJournalScreen> {
       case 'Risk/Reward':
         tooltip = 'Average reward divided by average risk. Higher than 1 means rewards exceed risks';
         break;
-      case 'Avg Win':
-        tooltip = 'Average profit amount from winning trades';
-        break;
-      case 'Avg Loss':
-        tooltip = 'Average loss amount from losing trades';
-        break;
       case 'Avg Hold Days':
         tooltip = 'Average number of days between buy and sell';
         break;
@@ -594,38 +504,43 @@ class _TradingJournalScreenState extends State<TradingJournalScreen> {
         elevation: 0,
         color: Theme.of(context).colorScheme.surface,
         child: Padding(
-          padding: const EdgeInsets.all(12),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   if (icon != null) ...[
                     Icon(
                       icon,
-                      size: 16,
+                      size: 14,
                       color: Colors.grey[600],
                     ),
-                    const SizedBox(width: 4),
+                    const SizedBox(width: 2),
                   ],
-                  Text(
-                    label,
-                    style: TextStyle(
-                      color: Colors.grey[600],
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
+                  Flexible(
+                    child: Text(
+                      label,
+                      style: TextStyle(
+                        color: Colors.grey[600],
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
+                      ),
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 4),
+              const SizedBox(height: 2),
               Text(
                 value,
                 style: TextStyle(
-                  fontSize: 16,
+                  fontSize: 14,
                   fontWeight: FontWeight.bold,
                   color: valueColor ?? Theme.of(context).colorScheme.onSurface,
                 ),
+                overflow: TextOverflow.ellipsis,
               ),
             ],
           ),
@@ -650,8 +565,10 @@ class _TradingJournalScreenState extends State<TradingJournalScreen> {
 
     for (var i = 0; i < sortedTrades.length; i++) {
       final trade = sortedTrades[i];
-      if (trade.sellPrice != null) {
-        final profit = (trade.sellPrice! - trade.buyPrice) * trade.quantity;
+      if (trade.sellPrice != null && trade.sellDate != null) {
+        final profit = trade.type == TradeType.long
+          ? (trade.sellPrice! - trade.buyPrice) * trade.quantity
+          : (trade.buyPrice - trade.sellPrice!) * trade.quantity;
         accountValue += profit;
         dataPoints.add(FlSpot(i.toDouble(), accountValue));
         dates.add(trade.sellDate!);
@@ -683,15 +600,23 @@ class _TradingJournalScreenState extends State<TradingJournalScreen> {
             bottomTitles: AxisTitles(
               sideTitles: SideTitles(
                 showTitles: true,
+                reservedSize: 35,
                 getTitlesWidget: (value, meta) {
                   if (value.toInt() >= 0 && value.toInt() < dates.length) {
-                    return Padding(
-                      padding: const EdgeInsets.only(top: 8.0),
-                      child: Text(
-                        DateFormat('MMM dd').format(dates[value.toInt()]),
-                        style: const TextStyle(fontSize: 10),
-                      ),
-                    );
+                    int interval = (dates.length / 4).ceil(); // Show about 4 dates
+                    if (value.toInt() % interval == 0) {
+                      return Padding(
+                        padding: const EdgeInsets.only(top: 10.0),
+                        child: Transform.rotate(
+                          angle: -0.5, // Rotate by about 30 degrees
+                          child: Text(
+                            DateFormat('MM/dd').format(dates[value.toInt()]),
+                            style: const TextStyle(fontSize: 10),
+                            textAlign: TextAlign.right,
+                          ),
+                        ),
+                      );
+                    }
                   }
                   return const Text('');
                 },
@@ -783,80 +708,165 @@ class _TradingJournalScreenState extends State<TradingJournalScreen> {
                                 horizontal: 16,
                                 vertical: 8,
                               ),
-                              child: ListTile(
-                                title: Row(
-                                  children: [
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 6,
-                                        vertical: 2,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
-                                        borderRadius: BorderRadius.circular(4),
-                                      ),
-                                      child: Text(
-                                        trade.ticker,
-                                        style: TextStyle(
-                                          color: Theme.of(context).colorScheme.primary,
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 12,
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Expanded(
-                                      child: Text(
-                                        'Buy: ${NumberFormat.currency(symbol: '\$').format(trade.buyPrice)} x ${trade.quantity}',
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                subtitle: Column(
+                              child: Padding(
+                                padding: const EdgeInsets.all(12),
+                                child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text('Date: ${DateFormat('MMM dd, yyyy').format(trade.date)}'),
-                                    Text('Setup: ${trade.setup}'),
-                                    if (trade.sellPrice != null) ...[
-                                      Text(
-                                        'Sell: ${NumberFormat.currency(symbol: '\$').format(trade.sellPrice)}',
-                                        style: TextStyle(
-                                          color: hasProfit
-                                              ? Colors.green
-                                              : hasLoss
-                                                  ? Colors.red
-                                                  : null,
-                                          fontWeight: FontWeight.bold,
+                                    Row(
+                                      children: [
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 6,
+                                            vertical: 2,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                                            borderRadius: BorderRadius.circular(4),
+                                          ),
+                                          child: Text(
+                                            trade.ticker,
+                                            style: TextStyle(
+                                              color: Theme.of(context).colorScheme.primary,
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 12,
+                                            ),
+                                          ),
                                         ),
-                                      ),
-                                      Text(
-                                        'Sell Date: ${DateFormat('MMM dd, yyyy').format(trade.sellDate!)}',
-                                      ),
-                                    ],
-                                    if (trade.notes.isNotEmpty)
+                                        const SizedBox(width: 8),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 6,
+                                            vertical: 2,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: trade.type == TradeType.long 
+                                              ? Colors.blue.withOpacity(0.1)
+                                              : Colors.purple.withOpacity(0.1),
+                                            borderRadius: BorderRadius.circular(4),
+                                          ),
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Icon(
+                                                trade.type == TradeType.long 
+                                                  ? Icons.arrow_upward 
+                                                  : Icons.arrow_downward,
+                                                size: 12,
+                                                color: trade.type == TradeType.long 
+                                                  ? Colors.blue
+                                                  : Colors.purple,
+                                              ),
+                                              const SizedBox(width: 4),
+                                              Text(
+                                                trade.type.name.toUpperCase(),
+                                                style: TextStyle(
+                                                  color: trade.type == TradeType.long 
+                                                    ? Colors.blue
+                                                    : Colors.purple,
+                                                  fontWeight: FontWeight.bold,
+                                                  fontSize: 12,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child: Text(
+                                            'Buy: ${NumberFormat.currency(symbol: '\$').format(trade.buyPrice)} x ${trade.quantity}',
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            IconButton(
+                                              icon: const Icon(Icons.edit_rounded),
+                                              onPressed: () => _showEditTradeDialog(trade),
+                                              tooltip: 'Edit Trade',
+                                              padding: EdgeInsets.zero,
+                                              constraints: const BoxConstraints(),
+                                              iconSize: 20,
+                                            ),
+                                            const SizedBox(width: 12),
+                                            IconButton(
+                                              icon: const Icon(Icons.delete_outline_rounded),
+                                              onPressed: () => _confirmDelete(trade),
+                                              tooltip: 'Delete Trade',
+                                              padding: EdgeInsets.zero,
+                                              constraints: const BoxConstraints(),
+                                              iconSize: 20,
+                                              color: Colors.red,
+                                            ),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                'Date: ${DateFormat('MMM dd, yyyy').format(trade.date)}',
+                                                style: const TextStyle(fontSize: 13),
+                                              ),
+                                              const SizedBox(height: 2),
+                                              Text(
+                                                'Setup: ${trade.setup}',
+                                                style: const TextStyle(fontSize: 13),
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        if (trade.sellPrice != null) ...[
+                                          Text(
+                                            'Sell: ${NumberFormat.currency(symbol: '\$').format(trade.sellPrice)}',
+                                            style: TextStyle(
+                                              fontSize: 13,
+                                              color: hasProfit
+                                                  ? Colors.green
+                                                  : hasLoss
+                                                      ? Colors.red
+                                                      : null,
+                                            ),
+                                          ),
+                                        ] else ...[
+                                          ElevatedButton.icon(
+                                            onPressed: () => _showEditTradeDialog(trade),
+                                            icon: const Icon(Icons.sell_rounded, size: 16),
+                                            label: Text(
+                                              trade.type == TradeType.long ? 'SELL' : 'COVER',
+                                            ),
+                                            style: ElevatedButton.styleFrom(
+                                              backgroundColor: Colors.green,
+                                              foregroundColor: Colors.white,
+                                              padding: const EdgeInsets.symmetric(
+                                                horizontal: 12,
+                                                vertical: 6,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ],
+                                    ),
+                                    if (trade.notes.isNotEmpty) ...[
+                                      const SizedBox(height: 4),
                                       Text(
                                         'Notes: ${trade.notes}',
                                         style: const TextStyle(
                                           fontStyle: FontStyle.italic,
+                                          fontSize: 12,
                                         ),
+                                        overflow: TextOverflow.ellipsis,
+                                        maxLines: 2,
                                       ),
-                                  ],
-                                ),
-                                isThreeLine: true,
-                                trailing: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    IconButton(
-                                      icon: const Icon(Icons.edit_rounded),
-                                      onPressed: () => _showEditTradeDialog(trade),
-                                      tooltip: 'Edit Trade',
-                                    ),
-                                    IconButton(
-                                      icon: const Icon(Icons.delete_outline_rounded),
-                                      onPressed: () => _confirmDelete(trade),
-                                      tooltip: 'Delete Trade',
-                                      color: Colors.red,
-                                    ),
+                                    ],
                                   ],
                                 ),
                               ),
@@ -897,6 +907,7 @@ class _AddTradeDialogState extends State<AddTradeDialog> {
   DateTime _selectedDate = DateTime.now();
   DateTime? _selectedSellDate;
   bool _hasSold = false;
+  TradeType _tradeType = TradeType.long;
 
   @override
   void initState() {
@@ -908,6 +919,7 @@ class _AddTradeDialogState extends State<AddTradeDialog> {
       _setupController.text = widget.trade!.setup;
       _notesController.text = widget.trade!.notes;
       _selectedDate = widget.trade!.date;
+      _tradeType = widget.trade!.type;
       if (widget.trade!.sellPrice != null) {
         _hasSold = true;
         _sellPriceController.text = widget.trade!.sellPrice!.toStringAsFixed(2);
@@ -936,18 +948,67 @@ class _AddTradeDialogState extends State<AddTradeDialog> {
 
   void _submitTrade() {
     if (_formKey.currentState!.validate()) {
+      // Validate dates
+      String? dateError;
+      
+      // Normalize dates to start of day for comparison
+      final now = DateTime.now();
+      final todayStart = DateTime(now.year, now.month, now.day);
+      final tradeDate = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day);
+      
+      if (tradeDate.isAfter(todayStart)) {
+        dateError = 'Trade date cannot be in the future';
+      }
+
+      if (_hasSold) {
+        if (_selectedSellDate == null) {
+          dateError = _tradeType == TradeType.long 
+            ? 'Please select a sell date'
+            : 'Please select a cover date';
+        } else {
+          final sellDate = DateTime(_selectedSellDate!.year, _selectedSellDate!.month, _selectedSellDate!.day);
+          if (sellDate.isAfter(todayStart)) {
+            dateError = _tradeType == TradeType.long 
+              ? 'Sell date cannot be in the future'
+              : 'Cover date cannot be in the future';
+          } else if (sellDate.isBefore(tradeDate)) {
+            dateError = _tradeType == TradeType.long 
+              ? 'Sell date cannot be before the trade date'
+              : 'Cover date cannot be before the entry date';
+          }
+        }
+      }
+
+      if (dateError != null) {
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Invalid Date'),
+            content: Text(dateError!),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('OK'),
+              ),
+            ],
+          ),
+        );
+        return;
+      }
+
       final trade = Trade(
         id: widget.trade?.id ?? const Uuid().v4(),
         date: _selectedDate,
         ticker: _tickerController.text.toUpperCase(),
-        buyPrice: CurrencyInputFormatter.getNumericValue(_buyPriceController.text),
+        buyPrice: double.parse(_buyPriceController.text),
         quantity: int.parse(_quantityController.text),
         sellPrice: _hasSold
-            ? CurrencyInputFormatter.getNumericValue(_sellPriceController.text)
+            ? double.parse(_sellPriceController.text)
             : null,
         setup: _setupController.text,
         notes: _notesController.text,
         sellDate: _hasSold ? _selectedSellDate : null,
+        type: _tradeType,
       );
 
       Navigator.of(context).pop(trade);
@@ -976,6 +1037,46 @@ class _AddTradeDialogState extends State<AddTradeDialog> {
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 24),
+                // Trade Type
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Trade Type',
+                          style: TextStyle(
+                            color: Colors.grey,
+                            fontSize: 12,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        SegmentedButton<TradeType>(
+                          segments: const [
+                            ButtonSegment<TradeType>(
+                              value: TradeType.long,
+                              label: Text('LONG'),
+                              icon: Icon(Icons.arrow_upward),
+                            ),
+                            ButtonSegment<TradeType>(
+                              value: TradeType.short,
+                              label: Text('SHORT'),
+                              icon: Icon(Icons.arrow_downward),
+                            ),
+                          ],
+                          selected: {_tradeType},
+                          onSelectionChanged: (Set<TradeType> selected) {
+                            setState(() {
+                              _tradeType = selected.first;
+                            });
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
                 // Trade Date
                 Card(
                   child: InkWell(
@@ -1027,6 +1128,14 @@ class _AddTradeDialogState extends State<AddTradeDialog> {
                           filled: true,
                         ),
                         textCapitalization: TextCapitalization.characters,
+                        onChanged: (value) {
+                          if (value != value.toUpperCase()) {
+                            _tickerController.value = _tickerController.value.copyWith(
+                              text: value.toUpperCase(),
+                              selection: TextSelection.collapsed(offset: value.length),
+                            );
+                          }
+                        },
                         validator: (value) {
                           if (value == null || value.isEmpty) {
                             return 'Required';
@@ -1040,7 +1149,7 @@ class _AddTradeDialogState extends State<AddTradeDialog> {
                       child: TextFormField(
                         controller: _buyPriceController,
                         decoration: InputDecoration(
-                          labelText: 'Buy Price',
+                          labelText: _tradeType == TradeType.long ? 'Buy Price' : 'Sell Price',
                           prefixText: '\$ ',
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(8),
@@ -1048,10 +1157,16 @@ class _AddTradeDialogState extends State<AddTradeDialog> {
                           filled: true,
                         ),
                         keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                        inputFormatters: [CurrencyInputFormatter()],
+                        inputFormatters: [
+                          FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}')),
+                        ],
                         validator: (value) {
                           if (value == null || value.isEmpty) {
                             return 'Required';
+                          }
+                          final number = double.tryParse(value);
+                          if (number == null) {
+                            return 'Enter a valid number';
                           }
                           return null;
                         },
@@ -1109,9 +1224,11 @@ class _AddTradeDialogState extends State<AddTradeDialog> {
                 // Sold Switch
                 Card(
                   child: SwitchListTile(
-                    title: const Text('Sold?'),
+                    title: Text(_tradeType == TradeType.long ? 'Sold?' : 'Covered?'),
                     subtitle: Text(
-                      _hasSold ? 'Trade closed' : 'Trade still open',
+                      _hasSold 
+                        ? _tradeType == TradeType.long ? 'Trade closed' : 'Position covered'
+                        : _tradeType == TradeType.long ? 'Trade still open' : 'Position still open',
                       style: TextStyle(
                         color: _hasSold ? Colors.green : Colors.grey,
                       ),
@@ -1135,9 +1252,9 @@ class _AddTradeDialogState extends State<AddTradeDialog> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text(
-                              'Sell Date',
-                              style: TextStyle(
+                            Text(
+                              _tradeType == TradeType.long ? 'Sell Date' : 'Cover Date',
+                              style: const TextStyle(
                                 color: Colors.grey,
                                 fontSize: 12,
                               ),
@@ -1168,7 +1285,7 @@ class _AddTradeDialogState extends State<AddTradeDialog> {
                   TextFormField(
                     controller: _sellPriceController,
                     decoration: InputDecoration(
-                      labelText: 'Sell Price',
+                      labelText: _tradeType == TradeType.long ? 'Sell Price' : 'Cover Price',
                       prefixText: '\$ ',
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
@@ -1176,10 +1293,18 @@ class _AddTradeDialogState extends State<AddTradeDialog> {
                       filled: true,
                     ),
                     keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                    inputFormatters: [CurrencyInputFormatter()],
+                    inputFormatters: [
+                      FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}')),
+                    ],
                     validator: (value) {
                       if (_hasSold && (value == null || value.isEmpty)) {
                         return 'Required when sold';
+                      }
+                      if (_hasSold) {
+                        final number = double.tryParse(value!);
+                        if (number == null) {
+                          return 'Enter a valid number';
+                        }
                       }
                       return null;
                     },

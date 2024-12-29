@@ -47,10 +47,10 @@ class CurrencyInputFormatter extends TextInputFormatter {
     List<String> parts = cleanText.split('.');
     String wholeNumber = parts[0];
     
-    // If there's a decimal part, keep it as is
+    // If there's a decimal part, keep only up to 2 decimal places
     String decimalPart = '';
     if (parts.length > 1) {
-      decimalPart = parts[1];
+      decimalPart = parts[1].substring(0, parts[1].length > 2 ? 2 : parts[1].length);
     }
     
     // Combine whole number and decimal

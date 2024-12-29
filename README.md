@@ -1,16 +1,38 @@
-# fund_manager
+# JPB Capital Fund Manager
 
-A new Flutter project.
+A Flutter application for managing investment funds and tracking trading performance.
+
+## Features
+
+- Client management with investment tracking
+- Trade journal with performance metrics
+- Transaction management (deposits/withdrawals)
+- Performance analytics including:
+  - Win rate
+  - Total profit/loss
+  - Edge ratio
+  - Expectancy
+  - Average win/loss
+  - Time-weighted rate of return
+- Visual PNL charts and statistics
+- Dark/light theme support
+
+## Technical Details
+
+Built with:
+- Flutter/Dart
+- Material Design 3
+- Local storage for data persistence
+- fl_chart for data visualization
 
 ## Getting Started
 
-This project is a starting point for a Flutter application.
+1. Clone the repository
+2. Run `flutter pub get` to install dependencies
+3. Run `flutter run` to start the application
 
-A few resources to get you started if this is your first Flutter project:
-
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
-
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+The app starts with a login screen and provides navigation to:
+- Home dashboard
+- Trading journal
+- Client management
+- Settings menu

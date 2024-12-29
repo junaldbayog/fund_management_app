@@ -14,33 +14,11 @@ class JPBAppBar extends StatelessWidget implements PreferredSizeWidget {
   Widget build(BuildContext context) {
     return AppBar(
       automaticallyImplyLeading: showBackButton,
-      title: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: const Color(0xFF00d293),
-              borderRadius: BorderRadius.circular(6),
-            ),
-            child: const Text(
-              'JPB',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-          const SizedBox(width: 8),
-          const Text(
-            'Capital',
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ],
+      backgroundColor: Colors.black,
+      title: Image.asset(
+        'assets/images/jpb-capital-logo.png',
+        height: 40,
+        fit: BoxFit.contain,
       ),
       centerTitle: true,
       actions: actions,

@@ -24,7 +24,7 @@ class FundManagerApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'JPB Capital',
-      themeMode: ThemeMode.system,
+      themeMode: ThemeMode.dark,
       theme: _buildLightTheme(),
       darkTheme: _buildDarkTheme(),
       home: const AppScaffold(child: LoginScreen()),
@@ -297,41 +297,13 @@ class AppScaffold extends StatelessWidget {
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.background,
       appBar: AppBar(
-        title: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            // Placeholder for logo - replace with actual Image widget when logo is available
-            Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: const Color(0xFF00d293),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: const Center(
-                child: Text(
-                  'JPB',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(width: 12),
-            const Text(
-              'JPB Capital',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ],
+        title: Image.asset(
+          'assets/images/jpb-capital-logo.png',
+          height: 40,
+          fit: BoxFit.contain,
         ),
         centerTitle: true,
-        backgroundColor: Colors.transparent,
+        backgroundColor: Colors.black,
         elevation: 0,
       ),
       body: child,

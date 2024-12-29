@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../models/client.dart';
+import '../models/transaction.dart';
 import '../services/storage_service.dart';
 import '../widgets/jpb_app_bar.dart';
 import '../utils/currency_input_formatter.dart';
@@ -18,7 +19,7 @@ class ClientsScreen extends StatefulWidget {
 class _ClientsScreenState extends State<ClientsScreen> {
   final StorageService _storage = StorageService();
   List<Client> _clients = [];
-  Map<String, double> _clientTotals = {};
+  Map<String, double> _clientBalances = {};
   bool _isLoading = true;
 
   @override
@@ -30,26 +31,35 @@ class _ClientsScreenState extends State<ClientsScreen> {
   Future<void> _loadClients() async {
     setState(() => _isLoading = true);
     try {
-      final clients = await _storage.getClients();
-      final Map<String, double> totals = {};
-      
-      // Calculate totals for each client
+      final futures = await Future.wait([
+        _storage.getClients(),
+        _storage.getTransactions(),
+      ]);
+
+      final clients = futures[0] as List<Client>;
+      final transactions = futures[1] as List<Transaction>;
+
+      // Calculate total investment for each client (initial + deposits - withdrawals)
+      Map<String, double> clientBalances = {};
       for (final client in clients) {
-        final transactions = await _storage.getTransactions(clientId: client.id);
-        double total = client.initialInvestment;
-        for (final transaction in transactions) {
+        double balance = client.initialInvestment;
+        
+        // Add transactions
+        final clientTransactions = transactions.where((t) => t.clientId == client.id);
+        for (final transaction in clientTransactions) {
           if (transaction.type == TransactionType.deposit) {
-            total += transaction.amount;
+            balance += transaction.amount;
           } else {
-            total -= transaction.amount;
+            balance -= transaction.amount;
           }
         }
-        totals[client.id] = total;
+        
+        clientBalances[client.id] = balance;
       }
 
       setState(() {
         _clients = clients;
-        _clientTotals = totals;
+        _clientBalances = clientBalances;
         _isLoading = false;
       });
     } catch (e) {
@@ -57,7 +67,7 @@ class _ClientsScreenState extends State<ClientsScreen> {
       setState(() => _isLoading = false);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading clients: ${e.toString()}')),
+          SnackBar(content: Text('Error loading clients: $e')),
         );
       }
     }
@@ -164,93 +174,78 @@ class _ClientsScreenState extends State<ClientsScreen> {
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _clients.isEmpty
-              ? const Center(
-                  child: Text('No clients yet. Add your first client!'),
-                )
+              ? const Center(child: Text('No clients yet. Add your first client!'))
               : ListView.builder(
                   itemCount: _clients.length,
+                  padding: const EdgeInsets.all(16),
                   itemBuilder: (context, index) {
                     final client = _clients[index];
-                    final totalInvestment = _clientTotals[client.id] ?? 0.0;
-                    final hasGain = totalInvestment > client.initialInvestment;
-                    final hasSameValue = totalInvestment == client.initialInvestment;
+                    final balance = _clientBalances[client.id] ?? 0.0;
                     
                     return Card(
-                      margin: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 8,
-                      ),
-                      child: ListTile(
-                        title: Text(
-                          client.name,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        subtitle: Column(
+                      margin: const EdgeInsets.only(bottom: 16),
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              'Initial Investment: ${NumberFormat.currency(symbol: '\$').format(client.initialInvestment)}',
-                            ),
                             Row(
                               children: [
-                                Text(
-                                  'Current Value: ${NumberFormat.currency(symbol: '\$').format(totalInvestment)}',
-                                  style: TextStyle(
-                                    color: hasGain
-                                        ? Colors.green
-                                        : hasSameValue
-                                            ? Colors.grey
-                                            : Colors.red,
-                                    fontWeight: FontWeight.bold,
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        client.name,
+                                        style: const TextStyle(
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        'Initial: ${NumberFormat.currency(symbol: '\$').format(client.initialInvestment)}',
+                                        style: TextStyle(
+                                          color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        'Total Investment: ${NumberFormat.currency(symbol: '\$').format(balance)}',
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
-                                const SizedBox(width: 4),
-                                if (!hasSameValue)
-                                  Icon(
-                                    hasGain
-                                        ? Icons.arrow_upward
-                                        : Icons.arrow_downward,
-                                    size: 16,
-                                    color: hasGain ? Colors.green : Colors.red,
-                                  ),
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    IconButton(
+                                      icon: const Icon(Icons.edit_rounded),
+                                      onPressed: () => _showEditClientDialog(client),
+                                      tooltip: 'Edit Client',
+                                    ),
+                                    IconButton(
+                                      icon: const Icon(Icons.delete_outline_rounded),
+                                      onPressed: () => _confirmDelete(client),
+                                      tooltip: 'Delete Client',
+                                      color: Colors.red,
+                                    ),
+                                  ],
+                                ),
                               ],
                             ),
-                            Text(
-                              'Started: ${DateFormat('MMM dd, yyyy').format(client.startingDate)}',
-                            ),
-                          ],
-                        ),
-                        isThreeLine: true,
-                        trailing: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            IconButton(
-                              icon: const Icon(Icons.history),
-                              onPressed: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) => TransactionHistoryScreen(
-                                      client: client,
-                                    ),
-                                  ),
-                                ).then((_) => _loadClients()); // Refresh after returning
-                              },
-                              tooltip: 'Transaction History',
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.edit),
-                              onPressed: () => _showEditClientDialog(client),
-                              tooltip: 'Edit Client',
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.delete),
-                              onPressed: () => _confirmDelete(client),
-                              tooltip: 'Delete Client',
-                              color: Colors.red,
-                            ),
+                            if (client.startingDate != null) ...[
+                              const SizedBox(height: 4),
+                              Text(
+                                'Started: ${DateFormat('MMM dd, yyyy').format(client.startingDate!)}',
+                                style: TextStyle(
+                                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                                ),
+                              ),
+                            ],
                           ],
                         ),
                       ),
@@ -335,73 +330,168 @@ class _ClientDialogState extends State<ClientDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      title: Text(widget.client == null ? 'Add New Client' : 'Edit Client'),
-      content: Form(
-        key: _formKey,
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextFormField(
-                controller: _nameController,
-                decoration: const InputDecoration(
-                  labelText: 'Client Name',
-                  hintText: 'Enter client name',
+    final theme = Theme.of(context);
+    return Dialog(
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Container(
+        width: MediaQuery.of(context).size.width * 0.9,
+        padding: const EdgeInsets.all(24),
+        child: Form(
+          key: _formKey,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Header
+                Row(
+                  children: [
+                    Icon(
+                      widget.client == null ? Icons.person_add : Icons.edit,
+                      size: 28,
+                      color: theme.colorScheme.primary,
+                    ),
+                    const SizedBox(width: 12),
+                    Text(
+                      widget.client == null ? 'Add New Client' : 'Edit Client',
+                      style: theme.textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
                 ),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Please enter a name';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _investmentController,
-                decoration: const InputDecoration(
-                  labelText: 'Initial Investment',
-                  hintText: 'Enter amount',
-                  prefixText: '\$ ',
+                const SizedBox(height: 24),
+                
+                // Name Field
+                TextFormField(
+                  controller: _nameController,
+                  decoration: InputDecoration(
+                    labelText: 'Client Name',
+                    hintText: 'Enter client name',
+                    prefixIcon: const Icon(Icons.person_outline_rounded),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    filled: true,
+                  ),
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Please enter a name';
+                    }
+                    return null;
+                  },
                 ),
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                inputFormatters: [
-                  CurrencyInputFormatter(),
-                ],
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Please enter an amount';
-                  }
-                  final amount = CurrencyInputFormatter.getNumericValue(value);
-                  if (amount <= 0) {
-                    return 'Amount must be greater than 0';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 16),
-              ListTile(
-                title: const Text('Starting Date'),
-                subtitle: Text(
-                  DateFormat('MMM dd, yyyy').format(_selectedDate),
+                const SizedBox(height: 16),
+                
+                // Investment Field
+                TextFormField(
+                  controller: _investmentController,
+                  decoration: InputDecoration(
+                    labelText: 'Initial Investment',
+                    hintText: 'Enter amount',
+                    prefixIcon: const Icon(Icons.attach_money_rounded),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    filled: true,
+                  ),
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  inputFormatters: [
+                    CurrencyInputFormatter(),
+                  ],
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Please enter an amount';
+                    }
+                    final amount = CurrencyInputFormatter.getNumericValue(value);
+                    if (amount <= 0) {
+                      return 'Amount must be greater than 0';
+                    }
+                    return null;
+                  },
                 ),
-                trailing: const Icon(Icons.calendar_today),
-                onTap: _selectDate,
-              ),
-            ],
+                const SizedBox(height: 16),
+                
+                // Date Field
+                InkWell(
+                  onTap: _selectDate,
+                  borderRadius: BorderRadius.circular(12),
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.grey.shade300),
+                      borderRadius: BorderRadius.circular(12),
+                      color: theme.inputDecorationTheme.fillColor,
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.calendar_today_rounded),
+                        const SizedBox(width: 12),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              'Starting Date',
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: Colors.grey[600],
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              DateFormat('MMM dd, yyyy').format(_selectedDate),
+                              style: theme.textTheme.titleMedium,
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 32),
+                
+                // Action Buttons
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: const Text('Cancel'),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: _submitForm,
+                        style: ElevatedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: Text(
+                          widget.client == null ? 'Add Client' : 'Save Changes',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
-        ),
-        ElevatedButton(
-          onPressed: _submitForm,
-          child: Text(widget.client == null ? 'Add Client' : 'Save Changes'),
-        ),
-      ],
     );
   }
 } 

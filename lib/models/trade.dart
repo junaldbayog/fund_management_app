@@ -8,6 +8,7 @@ class Trade {
   final String setup;
   final String notes;
   final DateTime? sellDate;
+  final TradeType type;
 
   Trade({
     required this.id,
@@ -19,6 +20,7 @@ class Trade {
     required this.setup,
     required this.notes,
     this.sellDate,
+    required this.type,
   });
 
   Map<String, dynamic> toMap() {
@@ -32,6 +34,7 @@ class Trade {
       'setup': setup,
       'notes': notes,
       'sellDate': sellDate?.toIso8601String(),
+      'type': type.name,
     };
   }
 
@@ -46,6 +49,43 @@ class Trade {
       setup: map['setup'],
       notes: map['notes'],
       sellDate: map['sellDate'] != null ? DateTime.parse(map['sellDate']) : null,
+      type: map['type'] != null 
+        ? TradeType.values.firstWhere(
+            (e) => e.name == map['type'],
+            orElse: () => TradeType.long,
+          )
+        : TradeType.long,
     );
   }
+
+  Trade copyWith({
+    String? id,
+    DateTime? date,
+    String? ticker,
+    double? buyPrice,
+    int? quantity,
+    double? sellPrice,
+    String? setup,
+    String? notes,
+    DateTime? sellDate,
+    TradeType? type,
+  }) {
+    return Trade(
+      id: id ?? this.id,
+      date: date ?? this.date,
+      ticker: ticker ?? this.ticker,
+      buyPrice: buyPrice ?? this.buyPrice,
+      quantity: quantity ?? this.quantity,
+      sellPrice: sellPrice ?? this.sellPrice,
+      setup: setup ?? this.setup,
+      notes: notes ?? this.notes,
+      sellDate: sellDate ?? this.sellDate,
+      type: type ?? this.type,
+    );
+  }
+}
+
+enum TradeType {
+  long,
+  short
 } 

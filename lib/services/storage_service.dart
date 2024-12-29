@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import '../models/client.dart';
 import '../models/trade.dart';
+import '../models/transaction.dart';
 import 'dart:convert';
 
 class StorageService {

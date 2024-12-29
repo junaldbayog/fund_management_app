@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/client.dart';
+import '../models/transaction.dart';
 import '../services/storage_service.dart';
 import '../widgets/jpb_app_bar.dart';
 import 'package:intl/intl.dart';
