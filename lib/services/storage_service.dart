@@ -10,7 +10,9 @@ class StorageService {
   late Box<String> _clientsBox;
   late Box<String> _transactionsBox;
   late Box<String> _tradesBox;
+  late Box<String> _tradingSetupsBox;
   static const String _tradesBoxName = 'trades';
+  static const String _tradingSetupsBoxName = 'trading_setups';
 
   factory StorageService() => _instance;
 
@@ -21,6 +23,7 @@ class StorageService {
     _clientsBox = await Hive.openBox<String>('clients');
     _transactionsBox = await Hive.openBox<String>('transactions');
     _tradesBox = await Hive.openBox<String>(_tradesBoxName);
+    _tradingSetupsBox = await Hive.openBox<String>(_tradingSetupsBoxName);
   }
 
   Future<void> insertClient(Client client) async {
@@ -28,7 +31,10 @@ class StorageService {
   }
 
   Future<List<Client>> getClients() async {
-    final clientMaps = _clientsBox.values.map((str) => jsonDecode(str)).toList();
+    final clientMaps = _clientsBox.values
+        .where((str) => str != null)
+        .map((str) => jsonDecode(str))
+        .toList();
     return clientMaps.map((map) => Client.fromMap(map)).toList();
   }
 
@@ -54,8 +60,10 @@ class StorageService {
   }
 
   Future<List<Transaction>> getTransactions({String? clientId}) async {
-    final transactionMaps =
-        _transactionsBox.values.map((str) => jsonDecode(str)).toList();
+    final transactionMaps = _transactionsBox.values
+        .where((str) => str != null)
+        .map((str) => jsonDecode(str))
+        .toList();
     final transactions =
         transactionMaps.map((map) => Transaction.fromMap(map)).toList();
 
@@ -70,7 +78,10 @@ class StorageService {
   }
 
   Future<List<Trade>> getTrades() async {
-    final tradeMaps = _tradesBox.values.map((str) => jsonDecode(str)).toList();
+    final tradeMaps = _tradesBox.values
+        .where((str) => str != null)
+        .map((str) => jsonDecode(str))
+        .toList();
     return tradeMaps.map((map) => Trade.fromMap(map)).toList().reversed.toList();
   }
 

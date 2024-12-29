@@ -56,28 +56,30 @@ class _HomeScreenState extends State<HomeScreen> {
       // Calculate total investment including initial investments, transactions, and trade profits/losses
       double total = 0;
       for (final client in clients) {
-        double clientTotal = client.initialInvestment;
-        
-        // Add transactions
-        final clientTransactions = transactions.where((t) => t.clientId == client.id);
-        for (final transaction in clientTransactions) {
-          if (transaction.type == TransactionType.deposit) {
-            clientTotal += transaction.amount;
-          } else {
-            clientTotal -= transaction.amount;
+        if (client.isActive != false) { // Only include active clients
+          double clientTotal = client.initialInvestment;
+          
+          // Add transactions
+          final clientTransactions = transactions.where((t) => t.clientId == client.id);
+          for (final transaction in clientTransactions) {
+            if (transaction.type == TransactionType.deposit) {
+              clientTotal += transaction.amount;
+            } else {
+              clientTotal -= transaction.amount;
+            }
           }
+          
+          total += clientTotal;
         }
-        
-        // Add trade profits/losses
-        final clientTrades = trades.where((t) => t.sellPrice != null);
-        for (final trade in clientTrades) {
-          final profit = trade.type == TradeType.long
-            ? (trade.sellPrice! - trade.buyPrice) * trade.quantity
-            : (trade.buyPrice - trade.sellPrice!) * trade.quantity;
-          clientTotal += profit;
-        }
-        
-        total += clientTotal;
+      }
+
+      // Add trade profits/losses from closed trades
+      final closedTrades = trades.where((t) => t.sellPrice != null);
+      for (final trade in closedTrades) {
+        final profit = trade.type == TradeType.long
+          ? (trade.sellPrice! - trade.buyPrice) * trade.quantity
+          : (trade.buyPrice - trade.sellPrice!) * trade.quantity;
+        total += profit;
       }
 
       setState(() {
@@ -98,6 +100,18 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _calculateStats(List<Trade> trades) {
+    if (trades.isEmpty) {
+      _stats = {
+        'winRate': 0,
+        'totalProfit': 0,
+        'edgeRatio': 0,
+        'expectancy': 0,
+        'averageWin': 0,
+        'averageLoss': 0,
+        'twrr': 0,
+      };
+      return;
+    }
     _stats = TradeStatistics.calculateStats(trades, _totalInvestment);
   }
 
