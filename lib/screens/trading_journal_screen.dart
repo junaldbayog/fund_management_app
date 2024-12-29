@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../widgets/jpb_app_bar.dart';
 import '../models/trade.dart';
+import '../models/trading_setup.dart';
 import '../utils/currency_input_formatter.dart';
 import '../services/storage_service.dart';
 import 'package:uuid/uuid.dart';
@@ -595,6 +596,10 @@ class _TradingJournalScreenState extends State<TradingJournalScreen> {
       return const SizedBox.shrink();
     }
 
+    // Determine if PNL is negative
+    final isPnlNegative = accountValue < 0;
+    final chartColor = isPnlNegative ? Colors.red : Theme.of(context).colorScheme.primary;
+
     return SizedBox(
       height: 200,
       child: LineChart(
@@ -650,13 +655,13 @@ class _TradingJournalScreenState extends State<TradingJournalScreen> {
             LineChartBarData(
               spots: dataPoints,
               isCurved: true,
-              color: Theme.of(context).colorScheme.primary,
+              color: chartColor,
               barWidth: 2,
               isStrokeCapRound: true,
               dotData: FlDotData(show: false),
               belowBarData: BarAreaData(
                 show: true,
-                color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                color: chartColor.withOpacity(0.1),
               ),
             ),
           ],
@@ -917,13 +922,16 @@ class _AddTradeDialogState extends State<AddTradeDialog> {
   final _buyPriceController = TextEditingController();
   final _quantityController = TextEditingController();
   final _sellPriceController = TextEditingController();
-  final _setupController = TextEditingController();
   final _notesController = TextEditingController();
   final _tickerController = TextEditingController();
+  final StorageService _storage = StorageService();
   DateTime _selectedDate = DateTime.now();
   DateTime? _selectedSellDate;
   bool _hasSold = false;
   TradeType _tradeType = TradeType.long;
+  List<TradingSetup> _setups = [];
+  TradingSetup? _selectedSetup;
+  bool _isLoadingSetups = true;
 
   @override
   void initState() {
@@ -932,7 +940,6 @@ class _AddTradeDialogState extends State<AddTradeDialog> {
       _tickerController.text = widget.trade!.ticker;
       _buyPriceController.text = widget.trade!.buyPrice.toStringAsFixed(2);
       _quantityController.text = widget.trade!.quantity.toString();
-      _setupController.text = widget.trade!.setup;
       _notesController.text = widget.trade!.notes;
       _selectedDate = widget.trade!.date;
       _tradeType = widget.trade!.type;
@@ -942,6 +949,50 @@ class _AddTradeDialogState extends State<AddTradeDialog> {
         _selectedSellDate = widget.trade!.sellDate;
       }
     }
+    _loadSetups();
+  }
+
+  Future<void> _loadSetups() async {
+    try {
+      final setups = await _storage.getTradingSetups();
+      setState(() {
+        _setups = setups.where((s) => s.isActive).toList();
+        _isLoadingSetups = false;
+        if (widget.trade != null) {
+          // Find the matching setup or use the first one if available
+          _selectedSetup = _setups
+              .where((s) => s.name == widget.trade!.setup)
+              .firstOrNull ?? (_setups.isNotEmpty ? _setups.first : null);
+        }
+      });
+    } catch (e) {
+      print('Error loading setups: $e');
+      setState(() => _isLoadingSetups = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error loading setups: $e')),
+        );
+      }
+    }
+  }
+
+  void _showSetupRequiredDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Trading Setups Required'),
+        content: const Text(
+          'You need to define at least one trading setup before adding trades.\n\n'
+          'Go to Menu → Settings → Trading Setups to add your setups.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _selectDate(BuildContext context, bool isSellDate) async {
@@ -963,6 +1014,18 @@ class _AddTradeDialogState extends State<AddTradeDialog> {
   }
 
   void _submitTrade() {
+    if (_setups.isEmpty) {
+      _showSetupRequiredDialog();
+      return;
+    }
+
+    if (_selectedSetup == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select a trading setup')),
+      );
+      return;
+    }
+
     if (_formKey.currentState!.validate()) {
       // Validate dates
       String? dateError;
@@ -1021,7 +1084,7 @@ class _AddTradeDialogState extends State<AddTradeDialog> {
         sellPrice: _hasSold
             ? double.parse(_sellPriceController.text)
             : null,
-        setup: _setupController.text,
+        setup: _selectedSetup!.name,
         notes: _notesController.text,
         sellDate: _hasSold ? _selectedSellDate : null,
         type: _tradeType,
@@ -1216,23 +1279,35 @@ class _AddTradeDialogState extends State<AddTradeDialog> {
                     ),
                     const SizedBox(width: 16),
                     Expanded(
-                      child: TextFormField(
-                        controller: _setupController,
-                        decoration: InputDecoration(
-                          labelText: 'Setup',
-                          hintText: 'e.g., Breakout',
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          filled: true,
-                        ),
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return 'Required';
-                          }
-                          return null;
-                        },
-                      ),
+                      child: _isLoadingSetups
+                          ? const Center(child: CircularProgressIndicator())
+                          : DropdownButtonFormField<TradingSetup>(
+                              value: _selectedSetup,
+                              decoration: InputDecoration(
+                                labelText: 'Setup',
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                filled: true,
+                              ),
+                              items: _setups.map((setup) {
+                                return DropdownMenuItem(
+                                  value: setup,
+                                  child: Text(setup.name),
+                                );
+                              }).toList(),
+                              onChanged: (value) {
+                                setState(() {
+                                  _selectedSetup = value;
+                                });
+                              },
+                              validator: (value) {
+                                if (value == null) {
+                                  return 'Required';
+                                }
+                                return null;
+                              },
+                            ),
                     ),
                   ],
                 ),

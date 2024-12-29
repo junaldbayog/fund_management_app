@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'profile_screen.dart';
 import 'login_screen.dart';
+import 'trading_setups_screen.dart';
 import '../services/auth_service.dart';
 
 class MenuScreen extends StatelessWidget {
@@ -79,13 +80,24 @@ class MenuScreen extends StatelessWidget {
             },
           ),
           const Divider(height: 1),
-          ListTile(
+          ExpansionTile(
             leading: const Icon(Icons.settings_rounded),
             title: const Text('Settings'),
-            trailing: const Icon(Icons.chevron_right_rounded),
-            onTap: () {
-              // TODO: Implement settings navigation
-            },
+            children: [
+              ListTile(
+                leading: const Icon(Icons.category_rounded),
+                title: const Text('Trading Setups'),
+                trailing: const Icon(Icons.chevron_right_rounded),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const TradingSetupsScreen(),
+                    ),
+                  );
+                },
+              ),
+            ],
           ),
           const Divider(height: 1),
           ListTile(

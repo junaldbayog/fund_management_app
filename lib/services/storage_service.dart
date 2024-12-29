@@ -3,6 +3,7 @@ import 'package:hive_flutter/hive_flutter.dart';
 import '../models/client.dart';
 import '../models/trade.dart';
 import '../models/transaction.dart';
+import '../models/trading_setup.dart';
 import 'dart:convert';
 
 class StorageService {
@@ -95,5 +96,25 @@ class StorageService {
 
   Future<void> deleteTrade(String id) async {
     await _tradesBox.delete(id);
+  }
+
+  Future<List<TradingSetup>> getTradingSetups() async {
+    final setupMaps = _tradingSetupsBox.values
+        .where((str) => str != null)
+        .map((str) => jsonDecode(str))
+        .toList();
+    return setupMaps.map((map) => TradingSetup.fromMap(map)).toList();
+  }
+
+  Future<void> addTradingSetup(TradingSetup setup) async {
+    await _tradingSetupsBox.put(setup.id, jsonEncode(setup.toMap()));
+  }
+
+  Future<void> updateTradingSetup(TradingSetup setup) async {
+    await _tradingSetupsBox.put(setup.id, jsonEncode(setup.toMap()));
+  }
+
+  Future<void> deleteTradingSetup(String id) async {
+    await _tradingSetupsBox.delete(id);
   }
 } 

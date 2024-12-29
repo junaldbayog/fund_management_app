@@ -183,6 +183,10 @@ class _HomeScreenState extends State<HomeScreen> {
       return const SizedBox.shrink();
     }
 
+    // Determine if PNL is negative
+    final isPnlNegative = accountValue < 0;
+    final chartColor = isPnlNegative ? Colors.red : Theme.of(context).colorScheme.primary;
+
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       shape: RoundedRectangleBorder(
@@ -198,12 +202,12 @@ class _HomeScreenState extends State<HomeScreen> {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                    color: chartColor.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Icon(
                     Icons.show_chart_rounded,
-                    color: Theme.of(context).colorScheme.primary,
+                    color: chartColor,
                     size: 24,
                   ),
                 ),
@@ -272,13 +276,13 @@ class _HomeScreenState extends State<HomeScreen> {
                     LineChartBarData(
                       spots: dataPoints,
                       isCurved: true,
-                      color: Theme.of(context).colorScheme.primary,
+                      color: chartColor,
                       barWidth: 2,
                       isStrokeCapRound: true,
                       dotData: FlDotData(show: false),
                       belowBarData: BarAreaData(
                         show: true,
-                        color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                        color: chartColor.withOpacity(0.1),
                       ),
                     ),
                   ],
